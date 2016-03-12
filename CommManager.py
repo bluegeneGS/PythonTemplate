@@ -274,7 +274,7 @@ class UDPRemoteRecv(asynchatZ.async_chat):
 
 #-----------------------------------------------------------------------------
 #-----------------------------------------------------------------------------
-class RemoteSend(asynchatZ.async_chat):
+class UDPRemoteSend(asynchatZ.async_chat):
     def __init__(self, addr):
         """Set up send only channel to send UDP to remote.
         addr: (ip, port)
