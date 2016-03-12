@@ -4,9 +4,10 @@
 #Created: 2015/01/12
 #-------------------------------------------------------------------------------
 '''
-This is Asynchronous socket handler handler template for general TCP (SOCK_STREAM)
-client/server communications
-If you want to start UDP sockets use SOCK_DGRAM
+This is Asynchronous socket handler handler template for general client/server 
+communications
+
+If you want to start UDP sockets use SOCK_DGRAM, TCP then use TCP ESOCK_STREAM
 
 Stream Socket(SOCK_STREAM):
 
