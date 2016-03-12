@@ -4,8 +4,26 @@
 #Created: 2015/01/12
 #-------------------------------------------------------------------------------
 '''
-This is Asynchronous socket handler handler template for general client/server 
-communications 
+This is Asynchronous socket handler handler template for general TCP (SOCK_STREAM)
+client/server communications
+If you want to start UDP sockets use SOCK_DGRAM
+
+Stream Socket(SOCK_STREAM):
+
+    Dedicated & point-to-point channel between server and client.
+    Use TCP protocol for data transmission.
+    Reliable and Lossless.
+    Data sent/received in the similar order.
+    Long time for recovering lost/mistaken data
+
+Datagram Socket(SOCK_DGRAM):
+
+    No dedicated & point-to-point channel between server and client.
+    Use UDP for data transmission.
+    Not 100% reliable and may lose data.
+    Data sent/received order might not be the same
+    Don't care or rapid recovering lost/mistaken data
+
 you can create the server/client the use asyncoreZ.loop() to enter a pooling loops
 '''
 
@@ -16,7 +34,7 @@ import asyncoreZ
 
 MAXCONNECTION = 10  #only allow 10 connections at the same time
 CONNECT_TIMEOUT = 20
-
+MAX_LEN_PACKET = 4096
 class CommChan(asynchatZ.async_chat):
     """This class handles communication with the remote, it is initiated when remote
     get a connect request on our ports
@@ -38,7 +56,7 @@ class CommChan(asynchatZ.async_chat):
         
         try:
             if sock is None:
-                # we are client - try to connect to the remote server
+                # we are client - try to connect to the remote TCP server
                 self.create_socket(socket.AF_INET, socket.SOCK_STREAM)
                 self.connect(remote_address)
             else:
@@ -192,7 +210,7 @@ class ConnectionServer(asyncoreZ.dispatcher):
         self.parent = parent
         self.terminator = terminator
         asyncoreZ.dispatcher.__init__(self)
-        self.create_socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.create_socket(socket.AF_INET, socket.SOCK_STREAM)  #TCP
         self.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)  #make it reusable
         self.bind(address)
         self.listen(MAXCONNECTION)  #can get this maximum connections
@@ -213,3 +231,79 @@ class ConnectionServer(asyncoreZ.dispatcher):
         except TypeError:
             err = self.socket.getsockopt(socket.SOL_SOCKET, socket.SO_ERROR)
             raise
+
+
+class UDPRemoteRecv(asynchatZ.async_chat):
+    def __init__(self, addr, cbRtn = None):
+        """Set up receive only channel to get UDPs from remote
+        addr: (ip, port)
+        cbRtn: call back routine to handle data or None for no cbRtn
+        """
+        asynchatZ.async_chat.__init__(self)
+        self.addr = addr
+        self.cbRtn = cbRtn
+        self.create_socket(socket.AF_INET, socket.SOCK_DGRAM)   #UDP
+        self.bind(addr)
+
+#-----------------------------------------------------------------------------
+    def collect_incoming_data(self, data):
+        #should not happen because it is for read only
+        self.data = self.data + data
+
+#-----------------------------------------------------------------------------
+    def handle_read(self):
+        data = self.socket.recv(MAX_LEN_PACKET)
+        cbRtn = self.cbRtn
+        if cbRtn:
+            try:
+                cbRtn(data)
+            except:
+                #'COMM RemoteRecv handle_read had err on str %s', data
+                pass
+        else:
+            #no cbRtn then handle data here
+            pass
+
+#-----------------------------------------------------------------------------
+    def readable(self):
+        return True
+
+#-----------------------------------------------------------------------------
+    def writable(self):
+        return False
+
+#-----------------------------------------------------------------------------
+#-----------------------------------------------------------------------------
+class UDPRemoteSend(asynchatZ.async_chat):
+    def __init__(self, addr):
+        """Set up send only channel to send UDP to remote.
+        addr: (ip, port)
+        """
+        asynchatZ.async_chat.__init__(self)
+        self.addr = addr
+        self.data = ''
+        self.create_socket(socket.AF_INET, socket.SOCK_DGRAM)   #UDP
+
+#-----------------------------------------------------------------------------
+    def handle_write(self):
+        try:
+            if self.data:
+                self.socket.sendto(self.data, self.addr)
+                self.data = ''
+        except:
+            pass
+
+#-----------------------------------------------------------------------------
+    def readable(self):
+        #send only udp socket
+        return False
+
+#-----------------------------------------------------------------------------
+    def sendData(self, data):
+        """Queues a data block to be sent"""
+        self.data = data
+
+#-----------------------------------------------------------------------------
+    def writable(self):
+        return len(self.data) > 0
+    
